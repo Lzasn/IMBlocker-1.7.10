@@ -1,13 +1,12 @@
 <p align="center"><img src="logo.png" width="140" alt="IMBlocker logo"></p>
 
-# IMBlocker · 1.7.10 反向移植版
+# IMBlocker · 1.7.10 移植版
 
 <p align="center"><img alt="Minecraft 1.7.10" src="https://img.shields.io/badge/Minecraft-1.7.10-3C8527?style=flat-square"> <img alt="Forge 10.13.4.1614" src="https://img.shields.io/badge/Forge-10.13.4.1614-E04E14?style=flat-square"> <img alt="GTNH 2.8.4" src="https://img.shields.io/badge/GTNH-2.8.4-2F6FEB?style=flat-square"> <img alt="Windows x64" src="https://img.shields.io/badge/Platform-Windows%20x64-0078D6?style=flat-square"> <img alt="Apache-2.0" src="https://img.shields.io/badge/License-Apache--2.0-8957E5?style=flat-square"></p>
 
 <p align="center"><b>模组仅在 GTNH 2.8.4 测试通过（Forge 10.13.4.1614 + lwjgl3ify 2.1.16 + UniMixins 0.1.23），其他版本请自测。</b></p>
 
-> 把 [IMBlocker](https://github.com/mrjesen/ImBlockerFabric)（作者 mrjesen，Apache-2.0）的核心行为搬到 1.7.10：  
-> **不输入文字的时候把输入法摘掉，点到文本框的那一刻再装回去。**
+> 把 [IMBlocker](https://github.com/mrjesen/ImBlockerFabric)（作者 mrjesen，Apache-2.0）的核心行为搬到 1.7.10：**不输入文字的时候把输入法摘掉，点到文本框的那一刻再装回去。**
 
 原版 1.7.10 的输入法一直挂在游戏窗口上，中文 / 日文 / 韩文输入法会吞掉 `W` `A` `S` `D` `E` `T` 这些按键，于是角色不动、物品栏打不开、聊天也开不出来。这个模组让键盘在「玩游戏」时保持英文直通，在「打字」时把输入法交还给你。
 
@@ -40,8 +39,6 @@
 | 2  | 确认有 **UniMixins**（GTNH 自带，无需额外安装）                              |
 | 3  | 启动游戏，主菜单后日志出现 `Using IME backend: windows/imm32 (detach)` 即为生效 |
 
-仅客户端模组，服务器不用装；不写世界数据，随删随走。
-
 源码与更新：<https://github.com/Lzasn/IMBlocker-1.7.10>
 
 ---
@@ -56,7 +53,7 @@
 | 界面关闭 / 文本框失焦                   |   摘除  | 最多晚 1 tick（50 ms） |
 | 游戏窗口不在前台（Alt-Tab）              |  不处理  | 只操作自己的窗口，不影响其他程序  |
 
-不需要任何手动切换：文本框获焦即恢复、失焦即摘除。想整体停用，把配置里 `enabled` 改成 `false` 即可（不写世界数据，也可以直接删 jar）。
+不需要任何手动切换：文本框获焦即恢复、失焦即摘除。想整体停用，把配置里 `enabled` 改成 `false` 即可（也可以直接删 jar）
 
 ---
 
@@ -150,17 +147,17 @@ general {
 
 ## 兼容性与已知限制
 
-| 项                                                                  | 状态                               |
-| ------------------------------------------------------------------ | -------------------------------- |
-| **GTNH 2.8.4** + lwjgl3ify 2.1.16 + LWJGL 3.3.3 + UniMixins 0.1.23 | 唯一实测通过的环境                        |
-| 其他 GTNH 版本 / 其他 1.7.10 整合包                                         | 未测，请自行验证；出问题请附 `logs/latest.log` |
-| 纯 Forge 1.7.10（LWJGL2）                                             | 理论可用，窗口句柄走前台窗口兜底，未实测             |
-| Linux / macOS                                                      | 加载但不生效（只实现了 Windows 后端）          |
-| NEI / AE2 / 任务书 / GT 输入框                                           | Mixin 覆盖，实测点集中在 NEI 搜索框          |
-| `nech`（拼音搜索）                                                       | 不冲突：它只做搜索匹配，mixin 列表为空           |
-| 其他模组注入 `setFocused`                                                | 全包 236 个 mod 扫描后无冲突，仅本模组注入该方法    |
-| IMEInputBackport / IngameIME                                       | 会互相抢 IME 状态，建议二选一                |
-| 表情符号等代理对字符                                                         | 1.7.10 本身不支持，属原版限制               |
+| 项                                                                  | 状态                                      |
+| ------------------------------------------------------------------ | --------------------------------------- |
+| **GTNH 2.8.4** + lwjgl3ify 2.1.16 + LWJGL 3.3.3 + UniMixins 0.1.23 | 唯一实测通过的环境                               |
+| 其他 GTNH 版本 / 其他 1.7.10 整合包                                         | 未测，请自行验证；出问题请附 `logs/latest.log`        |
+| 纯 Forge 1.7.10（LWJGL2）                                             | 理论可用，窗口句柄走前台窗口兜底，未实测                    |
+| Linux / macOS                                                      | 加载但不生效（只实现了 Windows 后端）                 |
+| NEI / AE2 / 任务书 / GT 输入框                                           | Mixin 覆盖，实测点集中在 NEI 搜索框                 |
+| `nech`（拼音搜索）                                                       | 不冲突：它只做搜索匹配，mixin 列表为空                  |
+| 其他模组注入 `setFocused`                                                | GTNH 2.8.4全包 236 个 mod 扫描后无冲突，仅本模组注入该方法 |
+| IMEInputBackport / IngameIME                                       | 会互相抢 IME 状态，建议二选一                       |
+| 表情符号等代理对字符                                                         | 1.7.10 本身不支持，属原版限制                      |
 
 其他说明：
 
