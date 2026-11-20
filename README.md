@@ -1,3 +1,5 @@
+<p align="center"><img src="logo.png" width="140" alt="IMBlocker logo"></p>
+
 # IMBlocker · 1.7.10 反向移植版
 
 <p align="center"><img alt="Minecraft 1.7.10" src="https://img.shields.io/badge/Minecraft-1.7.10-3C8527?style=flat-square"> <img alt="Forge 10.13.4.1614" src="https://img.shields.io/badge/Forge-10.13.4.1614-E04E14?style=flat-square"> <img alt="GTNH 2.8.4" src="https://img.shields.io/badge/GTNH-2.8.4-2F6FEB?style=flat-square"> <img alt="Windows x64" src="https://img.shields.io/badge/Platform-Windows%20x64-0078D6?style=flat-square"> <img alt="Apache-2.0" src="https://img.shields.io/badge/License-Apache--2.0-8957E5?style=flat-square"></p>

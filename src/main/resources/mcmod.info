@@ -10,7 +10,7 @@
 		"updateUrl": "",
 		"authorList": ["Lzasn"],
 		"credits": "Based on IMBlocker by mrjesen (Apache-2.0).",
-		"logoFile": "",
+		"logoFile": "logo.png",
 		"screenshots": [],
 		"parent": "",
 		"requiredMods": [],
