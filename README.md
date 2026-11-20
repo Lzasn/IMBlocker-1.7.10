@@ -39,7 +39,7 @@
 | 2  | 确认有 **UniMixins**（GTNH 自带，无需额外安装）                              |
 | 3  | 启动游戏，主菜单后日志出现 `Using IME backend: windows/imm32 (detach)` 即为生效 |
 
-源码与更新：<https://github.com/Lzasn/IMBlocker-1.7.10>
+源码与更新：<https://github.com/Lzasn/IMBlocker-1.7.10>　|　下载：<https://github.com/Lzasn/IMBlocker-1.7.10/releases>
 
 ---
 

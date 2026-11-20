@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 8 (toolchain for compileApiJava)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+
+      - name: Set up JDK 25 (Gradle daemon + gtnhgradle)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build
+        run: |
+          chmod +x gradlew
+          ./gradlew build --stacktrace \
+            "-Dorg.gradle.java.installations.paths=${JAVA_HOME_8_X64},${JAVA_HOME_25_X64}"
+
+      - name: Pick artifacts
+        run: |
+          mkdir -p dist
+          MAIN=$(ls build/libs/*.jar | grep -vE -- '-(dev|sources|javadoc)' | head -n1)
+          SOURCES=$(ls build/libs/*-sources.jar | head -n1)
+          echo "main   : $MAIN"
+          echo "sources: $SOURCES"
+          cp "$MAIN" "dist/imblocker-${GITHUB_REF_NAME}.jar"
+          [ -n "$SOURCES" ] && cp "$SOURCES" "dist/imblocker-${GITHUB_REF_NAME}-sources.jar" || true
+          ls -la dist
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.jar
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          body: |
+            Minecraft 1.7.10 / GTNH 输入法屏蔽模组。
+
+            **安装**：把 `imblocker-${{ github.ref_name }}.jar` 放进 `mods/`，需要 UniMixins（GTNH 自带），仅客户端。
+
+            **仅在 GTNH 2.8.4（Forge 10.13.4.1614 + lwjgl3ify 2.1.16 + UniMixins 0.1.23）实测通过**，其他版本请自测。
+
+            完整说明见 [README](https://github.com/${{ github.repository }}#readme)。
