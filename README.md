@@ -1,109 +1,117 @@
-# Example Forge Mod for Minecraft 1.7.10
+# IMBlocker — Minecraft 1.7.10 / Forge（GTNH）反向移植版
 
-[![](https://jitpack.io/v/GTNewHorizons/ExampleMod1.7.10.svg)](https://jitpack.io/#GTNewHorizons/ExampleMod1.7.10)
-[![](https://github.com/GTNewHorizons/ExampleMod1.7.10/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/GTNewHorizons/ExampleMod1.7.10/actions/workflows/build-and-test.yml)
+把 [IMBlocker](https://github.com/mrjesen/ImBlockerFabric)（原作者 mrjesen，Apache-2.0）的核心行为搬到 1.7.10：
+**不输入文字的时候把输入法摘掉，点到文本框的那一刻再装回去。**
 
-An example mod for Minecraft 1.7.10 with Forge focussed on a stable, updatable setup.
+原版 1.7.10 里输入法一直挂在游戏窗口上，中文/日文/韩文输入法会吞掉 `W A S D`、`E`、`T` 这些按键，导致
+角色不动、物品栏打不开。这个模组让键盘在“玩游戏”时保持纯英文直通，在“打字”时恢复输入法。
 
-<!-- omit in toc -->
-### Table of Contents
+## 行为
 
-* [Example Forge Mod for Minecraft 1.7.10](#example-forge-mod-for-minecraft-1710)
-    * [Motivation](#motivation)
-    * [Help! I'm stuck!](#help-im-stuck)
-    * [Getting started](#getting-started)
-    * [Features](#features)
-    * [Files](#files)
-    * [Forge's Access Transformers](#forges-access-transformers)
-    * [Mixins](#mixins)
-    * [Advanced](#advanced)
-    * [Feedback wanted](#feedback-wanted)
+| 场景 | 输入法状态 |
+| --- | --- |
+| 没有打开任何界面 | 摘除（按键直达游戏） |
+| 打开物品栏 / 机器 GUI / 任务书 / 设置等无文本框界面 | 摘除 |
+| 点击聊天栏、NEI 搜索框、GT 机器里的文本框、告示牌、书与笔 | 恢复 |
+| 界面关闭 / 失去焦点 | 摘除 |
+| 游戏窗口不在前台（Alt-Tab） | 完全不碰，不会影响别的程序 |
 
+默认按 `F6` 可以手动翻转当前状态（可在“控制”里改键；配置里设 `toggleKeyCode = 0` 可关掉快捷键）。
 
-### Motivation
+## 原理
 
-We had our fair share in struggles with build scripts for Minecraft Forge. There are quite a few pitfalls from non-obvious error messages. This Example Project provides you a build system you can adapt to over 90% of Minecraft Forge mods and can easily be updated if need be.
+1. **平台层**：Windows 上用 JNA 调用 `imm32` / `user32`（随模组打包，无需另装）。
+   - 默认策略 `detach`：`ImmAssociateContext(hwnd, NULL)` 把 IME 从游戏窗口上摘下来，原来的 HIMC 存起来，
+     需要打字时再 `ImmAssociateContext(hwnd, 保存的 HIMC)` 装回去。这正是 IMBlocker 在新版本上的做法。
+   - 备选策略 `openstatus`：不动关联关系，只 `ImmSetOpenStatus` 关闭/打开输入法，对少数“摘除也照样吃键”的
+     输入法更温和。
+   - 窗口句柄优先用 `GLFWNativeWin32.glfwGetWin32Window` 精确获取（GTNH 2.7+ 是 lwjgl3ify，即真正的
+     LWJGL3/GLFW 窗口）；拿不到时退回 `GetForegroundWindow()` 并校验进程 ID，保证只动自己的窗口。
+2. **焦点判定**：
+   - Mixin 注入 `GuiTextField#setFocused(Z)V` —— 1.7.10 生态里几乎所有文本框（包括 NEI 的搜索框，它内部就包了一个
+     `GuiTextField`、AE2 的 `MEGuiTextField`、任务书、GT 的输入框）最终都会走到这个方法，一条 hook 全覆盖。
+   - 兜底再对当前界面做一次对象图扫描，找出没有继承 `GuiTextField` 的自制输入控件（鸭子类型：有 `isFocused()` 或
+     `focused` 字段 + `getText()`），只在新界面打开时扫一次，之后每 tick 只做几次虚调用。
+   - `alwaysImeScreens` 里预置了 `GuiChat`、`GuiSleepMP`、`GuiEditSign`、`GuiScreenBook`，这些界面本身没有
+     `GuiTextField` 但确实需要打字。
+3. **每 tick**（20Hz）重新判断一次，只在状态翻转时才真正调用系统 API，避免刷屏式调用。
 
-### Help! I'm stuck!
+## 安装
 
-We all have been there! Check out our [FAQ](https://github.com/GTNewHorizons/ExampleMod1.7.10/blob/main/docs/FAQ.md). If that doesn't help, please open an issue.
+把构建出的 `imblocker-<version>.jar` 丢进 `mods/`，需要 **UniMixins**（GTNH 自带）。仅客户端模组，服务器不用装。
 
-### Getting started
+## 配置
 
-> [!WARNING]
-> Do not clone or fork this repository when creating a new mod. It contains files that are specific to this example project and are not part of the mod template. Use the [project starter](https://github.com/GTNewHorizons/ExampleMod1.7.10/releases/download/master-packages/starter.zip) instead.
+`config/imblocker.cfg`
 
-Creating mod from scratch:
-1. Unzip [project starter](https://github.com/GTNewHorizons/ExampleMod1.7.10/releases/download/master-packages/starter.zip) into project directory.
-2. Replace placeholders in LICENSE-template and rename it to LICENSE, or remove LICENSE-template and put any other license you like on your code. This is an permissive OSS project and we encourage you participate in OSS movement by having permissive license like one in template. You can find out pros and cons of OSS software in [this article](https://www.freecodecamp.org/news/what-is-great-about-developing-open-source-and-what-is-not/)
-3. Ensure your project is under VCS. For example initialise git repository by running `git init; git commit --message "initialized repository"`.
-4. Replace placeholders (edit values in gradle.properties, change example package and class names, etc.)
-5. Run `./gradlew setupDecompWorkspace`
-6. Run `./gradlew build`
-6. Make sure to check out the rest sections of this file.
-7. You are good to go!
+```ini
+general {
+    # 总开关
+    B:enabled=true
 
-We also have described guidelines for existing mod [migration](docs/migration.md) and [porting](docs/porting.md)
+    # detach: 摘除 IME 上下文（推荐，IMBlocker 同款）
+    # openstatus: 只关闭/打开输入法
+    S:mode=detach
 
-### Features
+    # 每多少个 tick 检查一次焦点，1 = 50ms
+    I:checkIntervalTicks=1
 
- - Updatable: Replace [`build.gradle`](https://github.com/GTNewHorizons/ExampleMod1.7.10/blob/main/build.gradle) with a newer version
- - Optional API artifact (.jar)
- - Optional version replacement in Java files
- - Optional shadowing of dependencies
- - Simplified setup of Mixin and example
- - Scala support (add sources under `src/main/scala/` instead of `src/main/java/`)
- - Optional named developer account for consistent player progression during testing
- - Boilerplate forge mod as starting point
- - Improved warnings for pitfalls
- - Git Tags integration for versioning
- - [Jitpack](https://jitpack.io) CI
- - GitHub CI:
-   - Releasing your artifacts on new tags pushed. Push git tag named after version (e.g. 1.0.0) which will trigger a release of artifacts with according names.
-   - Running smoke test for server startup. On any server crash occurring workflow will fail and print the crash log.
+    # 切换快捷键的 LWJGL 键码，F6 = 64，0 = 关闭
+    I:toggleKeyCode=64
 
-### Files
- - [`build.gradle`](https://github.com/GTNewHorizons/ExampleMod1.7.10/blob/main/build.gradle): This is the core script of the build process. You should not need to tamper with it, unless you are trying to accomplish something out of the ordinary. __Do not touch this file! You will make a future update near impossible if you do so!__
- - [`gradle.properties`](https://github.com/GTNewHorizons/ExampleMod1.7.10/blob/main/gradle.properties): The core configuration file. It includes
- - [`dependencies.gradle[.kts]`](https://github.com/GTNewHorizons/ExampleMod1.7.10/blob/main/dependencies.gradle): Add your mod's dependencies in this file. This is separate from the main build script, so you may replace the [`build.gradle`](https://github.com/SinTh0r4s/ExampleMod1.7.10/blob/main/build.gradle) if an update is available.
- - [`repositories.gradle[.kts]`](https://github.com/GTNewHorizons/ExampleMod1.7.10/blob/main/repositories.gradle): Add your dependencies' repositories. This is separate from the main build script, so you may replace the [`build.gradle`](https://github.com/SinTh0r4s/ExampleMod1.7.10/blob/main/build.gradle) if an update is available.
- - `addon.gradle[.kts]`: Any additional build logic. This is separate from the main build script, so you may replace the [`build.gradle`](https://github.com/SinTh0r4s/ExampleMod1.7.10/blob/main/build.gradle) if an update is available. See [Advanced](#advanced) for more details.
- - [`jitpack.yml`](https://github.com/GTNewHorizons/ExampleMod1.7.10/blob/main/jitpack.yml): Ensures that your mod is available as import over [Jitpack](https://jitpack.io).
- - [`.github/workflows/gradle.yml`](https://github.com/GTNewHorizons/ExampleMod1.7.10/blob/main/.github/workflows/gradle.yml): A simple CI script that will build your mod any time it is pushed to `master` or `main` and publish the result as release in your repository. This feature is free with GitHub if your repository is public.
+    # 打印每次状态翻转，排查问题用
+    B:debug=false
 
-### Forge's Access Transformers
+    # 没有 GuiTextField 但需要输入法的界面
+    S:alwaysImeScreens <
+        net.minecraft.client.gui.GuiChat
+        net.minecraft.client.gui.GuiSleepMP
+        net.minecraft.client.gui.inventory.GuiEditSign
+        net.minecraft.client.gui.GuiScreenBook
+     >
 
-You may activate Forge's Access Transformers by defining a configuration file in `gradle.properties`.
+    # 额外当作输入框处理的类名（可写片段），比如某个模组自制搜索框
+    S:extraTextInputClasses <
+     >
+}
+```
 
-Check out the [`example-access-transformers`](https://github.com/GTNewHorizons/ExampleMod1.7.10/tree/example-access-transformers) branch for a working example!
+某个模组的输入框打字时输入法没恢复？把 `debug=true` 打开，看日志里 `screen -> xxx` 的类名，然后：
+先加进 `extraTextInputClasses`（如果它是自制控件），或者告诉我它的类名，我给它补一条适配。
 
-> [!WARNING]
-> Access Transformers are bugged and will deny you any sources for the decompiled Minecraft! Your development environment will still work, but you might face some inconveniences. For example, IntelliJ will not permit searches in dependencies without attached sources.
+## 构建
 
-### Mixins
+GTNH 的新构建链对 JDK 有点挑剔，先把两个坑说清楚：
 
-[Mixins](https://github.com/SpongePowered/Mixin) are used to modify vanilla or mod/library code during runtime without having to edit, recompile, and redistribute the original code. For example, mixins can change a hardcoded value, redirect a method call, inject additional code, access private fields/methods, make a class implement your interface, and more. Mixins are an advanced feature which most normal mods will not require.
+- **跑 Gradle 必须 JDK 25**（仓库里 `gradle/gradle-daemon-jvm.properties` 写死 25，`gtnhgradle` 插件本身也要求 JVM ≥ 25）；
+- **`compileApiJava` 源码集要 JDK 8 工具链**，Gradle 默认会自己去 foojay/GitHub 自动下载，国内直连基本必挂。
 
-Documentation about Mixin features can be found here: [Mixin Wiki](https://github.com/SpongePowered/Mixin/wiki) and [MixinExtras Wiki](https://github.com/LlamaLad7/MixinExtras/wiki)
+所以本地要备好 JDK 8 + 25，并显式告诉 Gradle 它们在哪（`<path>` 换成自己的路径）：
 
-There are many examples of mixins in these mods: [Hodgepodge](https://github.com/GTNewHorizons/Hodgepodge) and [Angelica](https://github.com/GTNewHorizons/Angelica)
+```bash
+export JAVA_HOME=/path/to/jdk-25
+export JAVA_TOOL_OPTIONS="-Djavax.net.ssl.trustStoreType=WINDOWS-ROOT \
+  -Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=7890 \
+  -Dhttp.proxyHost=127.0.0.1 -Dhttp.proxyPort=7890"
+./gradlew build \
+  "-Dorg.gradle.java.installations.paths=/path/to/jdk8,/path/to/jdk-17,/path/to/jdk-25"
+```
 
-To enable Mixins in your project, follow one of the example commits:
-- use [normal mixins](https://github.com/GTNewHorizons/ExampleMod1.7.10/commit/beba55615fa8337b7639f0d5b18db6cc8d4826be) for basic and quick registration
-- use [GTNH IMixins](https://github.com/GTNewHorizons/ExampleMod1.7.10/commit/055cd4f18765a421a86c706f53b62116988297e3) (recommended) for the same thing as below, but in a less verbose and more unified manner using the IMixins api
-- use [GTNH Early/Late mixins](https://github.com/GTNewHorizons/ExampleMod1.7.10/commit/c4df59d92164775b69451f3e690239e93d1fc979) to have full control over the registration logic and check for presence of other mods during runtime to load your mixins
+产物在 `build/libs/imblocker-<version>.jar`（分发用，已 reobf + 打包 JNA；`-dev.jar` 只给开发环境用）。
+首次构建要拉 Forge 10.13.4.1614 + MCP stable_12 并反编译，约 5 分钟；之后增量构建几十秒。
 
-The extra required dependencies are handled automatically after mixins are enabled.
+## 兼容性 / 已知限制
 
-### Advanced
+- **只支持 Windows**。Linux（fcitx/ibus）和 macOS 上模组会加载但什么都不做。Linux 想用输入法得靠
+  IngameIME / IMEInputBackport 这类走 XIM/IBus 的实现。
+- 极少数纯 TSF 输入法（个别版本的搜狗/QQ 拼音）可能不理会“摘除上下文”，这时把 `mode` 改成 `openstatus` 试试。
+- 1.7.10 本身不支持输入法**候选框跟随光标 / 内联预编辑**，这个模组不解决那部分——那是 IMEInputBackport /
+  IngameIME 的活。两者同时装可能会抢 IME 状态，建议二选一。
+- 表情符号等需要代理对的字符在 1.7.10 里依旧不可能，属于原版限制。
+- 与 `InputFix` 类模组同用时，本模组在打字瞬间会把 IME 装回去，理论上不冲突，但没实测。
 
-If your project requires custom gradle commands you may add a `addon.gradle[.kts]` to your project. It will be added automatically to the build script. Although we recommend against it, it is sometimes required. When in doubt, feel free to ask us about it. You may break future updates of this build system!
-If you need access to properties modified later in the buildscript, you can also use a `addon.late.gradle[.kts]`.
-For local tweaks that you don't want to commit to Git, like adding extra JVM arguments for testing, use `addon[.late].local.gradle[.kts]`.
+## 许可与致谢
 
-### Feedback wanted
-
-If you tried out this build script we would love to head your opinion! Is there any feature missing for you? Did something not work? Please open an issue and we will try to resolve it asap!
-
-Happy modding,\
-[SinTh0r4s](https://github.com/SinTh0r4s), [TheElan](https://github.com/TheElan) and [basdxz](https://github.com/basdxz)
+- 行为与思路来自 IMBlocker（mrjesen，Apache-2.0），本仓库是针对 1.7.10 的独立实现。
+- 本项目同样以 Apache-2.0 发布。
+- 构建骨架来自 [GTNewHorizons/ExampleMod1.7.10](https://github.com/GTNewHorizons/ExampleMod1.7.10)。

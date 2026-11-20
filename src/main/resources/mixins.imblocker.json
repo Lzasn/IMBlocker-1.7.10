@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.7.11",
+  "package": "com.imblocker.backport.mixins",
+  "compatibilityLevel": "JAVA_8",
+  "refmap": "mixins.imblocker.refmap.json",
+  "client": [
+    "MixinGuiTextField"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
