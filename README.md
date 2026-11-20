@@ -220,6 +220,7 @@ src/main/java/com/imblocker/backport
 
 ## 许可与致谢
 
+- 作者：**Lzasn**（1.7.10 移植与维护）。
 - 行为与思路来自 [IMBlocker](https://github.com/mrjesen/ImBlockerFabric)（mrjesen，Apache-2.0），本仓库是针对 1.7.10 的独立实现。
 - 本项目同样以 **Apache-2.0** 发布，构建骨架来自 [GTNewHorizons/ExampleMod1.7.10](https://github.com/GTNewHorizons/ExampleMod1.7.10)。
 - 内嵌 [JNA](https://github.com/java-native-access/jna) 5.19.1（Apache-2.0 / LGPL-2.1 双许可）。
