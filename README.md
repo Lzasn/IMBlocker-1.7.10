@@ -6,9 +6,9 @@
 
 <p align="center"><b>模组仅在 GTNH 2.8.4 测试通过（Forge 10.13.4.1614 + lwjgl3ify 2.1.16 + UniMixins 0.1.23），其他版本请自测。</b></p>
 
-> 把 [IMBlocker](https://github.com/mrjesen/ImBlockerFabric)（作者 mrjesen，Apache-2.0）的核心行为搬到 1.7.10：**不输入文字的时候把输入法摘掉，点到文本框的那一刻再装回去。**
+> 把 [IMBlocker](https://github.com/mrjesen/ImBlockerFabric)（作者 mrjesen，Apache-2.0）的核心行为搬到 1.7.10
 
-原版 1.7.10 的输入法一直挂在游戏窗口上，中文 / 日文 / 韩文输入法会吞掉 `W` `A` `S` `D` `E` `T` 这些按键，于是角色不动、物品栏打不开、聊天也开不出来。这个模组让键盘在「玩游戏」时保持英文直通，在「打字」时把输入法交还给你。
+原版 1.7.10 的输入法一直挂在游戏窗口上，中文 / 日文 / 韩文输入法会吞掉 `W` `A` `S` `D` `E` `T` 这些按键，于是角色不动、物品栏打不开、聊天也开不出来。这个模组让键盘在「玩游戏」时保持英文直通，在「打字」时把输入法交还
 
 ```text
 游戏进行中 ──┬─ 界面里没有文本框 ──► 摘除 IME ──► 按键直达游戏
@@ -35,8 +35,8 @@
 
 | 步骤 | 操作                                                             |
 | -- | -------------------------------------------------------------- |
-| 1  | 把 `imblocker-1.7.10-0.1.1.jar` 放进整合包的 `mods/`                  |
-| 2  | 确认有 **UniMixins**（GTNH 自带，无需额外安装）                              |
+| 1  | 把 `imblocker-<version>.jar` 放进整合包的 `mods/`                  |
+| 2  | 安装 **UniMixins** 前置模组                          |
 | 3  | 启动游戏，主菜单后日志出现 `Using IME backend: windows/imm32 (detach)` 即为生效 |
 
 源码与更新：<https://github.com/Lzasn/IMBlocker-1.7.10>
@@ -67,7 +67,7 @@
 | 状态决策 | 该开还是该关，只在翻转时动作   | 每 tick（20 Hz）计算一次，幂等调用                                       |
 | 系统调用 | 真正切换 Windows 输入法 | JNA 调 `imm32` / `user32`，JNA 已内嵌                             |
 
-**① 为什么盯 `setFocused`**  
+**① `setFocused`**  
 1.7.10 生态里几乎所有文本框最后都会走到这个方法：NEI 的搜索框内部就包了一个 `GuiTextField`，AE2 的 `MEGuiTextField`、任务书、GT 的输入框也都继承自它。一条 hook 就能覆盖绝大部分场景。  
 没有继承 `GuiTextField` 的自制控件，用一个「鸭子类型」扫描兜底：新界面打开时遍历一次对象图，凡是带 `isFocused()`（或 `focused` 字段）且带 `getText()` 的，都算文本输入。之后每 tick 只做几次虚调用。
 
@@ -80,8 +80,8 @@
 
 装回去之后还会校验一次 `ImmGetContext`，如果 context 在摘除期间失效，会新建一个，避免出现「打字时反而完全没输入法」的死局。
 
-**③ 窗口句柄从哪来**  
-优先 `GLFWNativeWin32.glfwGetWin32Window(glfwGetCurrentContext())` —— GTNH 2.7+ 跑的是 lwjgl3ify，底层就是真正的 LWJGL 3 / GLFW 窗口，这样拿到的句柄最准确；拿不到（比如纯 LWJGL2 的老整合）才退回 `GetForegroundWindow()`，并且核对进程 ID，确保只改自己的窗口。
+**③ 窗口句柄**  
+优先 `GLFWNativeWin32.glfwGetWin32Window(glfwGetCurrentContext())` —— GTNH 2.7+ 跑的是 lwjgl3ify；拿不到（比如纯 LWJGL2 的老整合）才退回 `GetForegroundWindow()`，并且核对进程 ID。
 
 ---
 
@@ -133,7 +133,7 @@ general {
 | 某个模组的搜索框打不出中文                   | `debug=true`，看日志里那一行 `screen -> 类名`，把类名填进 `extraTextInputClasses` |
 | 聊天能打字但候选框不跟随光标                  | 这是 1.7.10 原版限制，本模组不负责；需要 IMEInputBackport / IngameIME 那类方案        |
 | 启动崩溃 / 日志有 `Mixin apply failed` | 把 `logs/latest.log` 与 `crash-reports` 里的报告发出来                     |
-| 想彻底关掉但保留模组                      | 配置文件 `enabled=false`，或直接删除 jar                                    |
+| 想彻底关掉但保留模组                      | 配置文件 `enabled=false`                                    |
 
 开 `debug=true` 后，日志里能看到这类信息：
 
@@ -152,7 +152,7 @@ general {
 | **GTNH 2.8.4** + lwjgl3ify 2.1.16 + LWJGL 3.3.3 + UniMixins 0.1.23 | 唯一实测通过的环境                               |
 | 其他 GTNH 版本 / 其他 1.7.10 整合包                                         | 未测，请自行验证；出问题请附 `logs/latest.log`        |
 | 纯 Forge 1.7.10（LWJGL2）                                             | 理论可用，窗口句柄走前台窗口兜底，未实测                    |
-| Linux / macOS                                                      | 加载但不生效（只实现了 Windows 后端）                 |
+| Linux / macOS                                                      | 暂不支持                 |
 | NEI / AE2 / 任务书 / GT 输入框                                           | Mixin 覆盖，实测点集中在 NEI 搜索框                 |
 | `nech`（拼音搜索）                                                       | 不冲突：它只做搜索匹配，mixin 列表为空                  |
 | 其他模组注入 `setFocused`                                                | GTNH 2.8.4全包 236 个 mod 扫描后无冲突，仅本模组注入该方法 |
@@ -169,7 +169,7 @@ general {
 
 ## 从源码构建
 
-GTNH 的新构建链对 JDK 比较挑剔，两个坑先说清楚：
+GTNH 的新构建链对 JDK 比较挑剔：
 
 - **跑 Gradle 必须 JDK 25**：仓库里 `gradle/gradle-daemon-jvm.properties` 写死 25，`gtnhgradle` 插件本身也要求 JVM ≥ 25；
 - **`compileApiJava` 源码集要 JDK 8 工具链**：Gradle 默认会自己去 foojay / GitHub 自动下载，国内直连基本必挂。
