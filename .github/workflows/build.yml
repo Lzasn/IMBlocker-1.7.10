@@ -1,0 +1,49 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 8 (toolchain for compileApiJava)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+
+      - name: Set up JDK 25 (Gradle daemon + gtnhgradle)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Build
+        run: |
+          ./gradlew build --stacktrace \
+            "-Dorg.gradle.java.installations.paths=${JAVA_HOME_8_X64},${JAVA_HOME_25_X64}"
+
+      - name: Collect artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: imblocker-jar
+          path: build/libs/*.jar
+          if-no-files-found: warn
