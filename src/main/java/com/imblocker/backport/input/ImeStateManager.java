@@ -34,7 +34,6 @@ public final class ImeStateManager {
     private static Minecraft minecraft;
     private static GuiScreen lastScreen;
     private static List<TextInputProbe> probes = Collections.emptyList();
-    private static Boolean manualOverride;
     private static int tickCounter;
 
     private ImeStateManager() {}
@@ -51,7 +50,7 @@ public final class ImeStateManager {
             return;
         }
         FOCUSED.put(field, Boolean.TRUE);
-        if (manualOverride == null) {
+        if (Config.enabled) {
             apply(true);
         }
     }
@@ -61,7 +60,7 @@ public final class ImeStateManager {
             return;
         }
         FOCUSED.remove(field);
-        if (manualOverride == null) {
+        if (Config.enabled) {
             refresh();
         }
     }
@@ -77,7 +76,6 @@ public final class ImeStateManager {
             lastScreen = screen;
             probes = TextInputScanner.scan(screen);
             FOCUSED.clear();
-            manualOverride = null;
             IMBlocker.debug(
                 "screen -> {} (probes: {})",
                 screen == null ? "none" : screen.getClass()
@@ -88,12 +86,6 @@ public final class ImeStateManager {
             return;
         }
         refresh();
-    }
-
-    public static void toggle() {
-        boolean current = computeWanted();
-        manualOverride = Boolean.valueOf(!current);
-        apply(manualOverride.booleanValue());
     }
 
     // ------------------------------------------------------------------ internals
@@ -112,9 +104,6 @@ public final class ImeStateManager {
     private static boolean computeWanted() {
         if (!Config.enabled) {
             return true;
-        }
-        if (manualOverride != null) {
-            return manualOverride.booleanValue();
         }
         GuiScreen screen = minecraft == null ? null : minecraft.currentScreen;
         if (screen == null) {

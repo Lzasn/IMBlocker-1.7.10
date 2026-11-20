@@ -7,8 +7,6 @@ import java.util.List;
 
 import net.minecraftforge.common.config.Configuration;
 
-import org.lwjgl.input.Keyboard;
-
 /**
  * Configuration, stored in config/imblocker.cfg.
  */
@@ -22,8 +20,6 @@ public final class Config {
     public static String mode = "detach";
     /** How many client ticks between two focus checks. 1 = every tick (50 ms). */
     public static int checkIntervalTicks = 1;
-    /** Hotkey used to toggle the IME blocker at runtime. 0 disables the hotkey. */
-    public static int toggleKeyCode = Keyboard.KEY_F6;
     /** Print every state transition to the log. */
     public static boolean debug = false;
     /** Screens that always need the IME, even though they own no GuiTextField (chat, sign, book, ...). */
@@ -58,14 +54,6 @@ public final class Config {
                 1,
                 20,
                 "Ticks between two focus checks (20 ticks = 1 second).");
-
-            toggleKeyCode = cfg.getInt(
-                "toggleKeyCode",
-                CATEGORY,
-                toggleKeyCode,
-                0,
-                255,
-                "LWJGL key code of the toggle hotkey (default F6 = 64). 0 disables the hotkey.");
 
             debug = cfg.getBoolean("debug", CATEGORY, debug, "Log every IME state change.");
 

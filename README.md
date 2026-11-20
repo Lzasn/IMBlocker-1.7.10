@@ -1,68 +1,113 @@
-# IMBlocker — Minecraft 1.7.10 / Forge（GTNH）反向移植版
+# IMBlocker · 1.7.10 反向移植版
 
-把 [IMBlocker](https://github.com/mrjesen/ImBlockerFabric)（原作者 mrjesen，Apache-2.0）的核心行为搬到 1.7.10：
-**不输入文字的时候把输入法摘掉，点到文本框的那一刻再装回去。**
+<p align="center"><img alt="Minecraft 1.7.10" src="https://img.shields.io/badge/Minecraft-1.7.10-3C8527?style=flat-square"> <img alt="Forge 10.13.4.1614" src="https://img.shields.io/badge/Forge-10.13.4.1614-E04E14?style=flat-square"> <img alt="GTNH 2.8.4" src="https://img.shields.io/badge/GTNH-2.8.4-2F6FEB?style=flat-square"> <img alt="Windows x64" src="https://img.shields.io/badge/Platform-Windows%20x64-0078D6?style=flat-square"> <img alt="Apache-2.0" src="https://img.shields.io/badge/License-Apache--2.0-8957E5?style=flat-square"></p>
 
-原版 1.7.10 里输入法一直挂在游戏窗口上，中文/日文/韩文输入法会吞掉 `W A S D`、`E`、`T` 这些按键，导致
-角色不动、物品栏打不开。这个模组让键盘在“玩游戏”时保持纯英文直通，在“打字”时恢复输入法。
+<p align="center"><b>模组仅在 GTNH 2.8.4 测试通过（Forge 10.13.4.1614 + lwjgl3ify 2.1.16 + UniMixins 0.1.23），其他版本请自测。</b></p>
 
-## 行为
+> 把 [IMBlocker](https://github.com/mrjesen/ImBlockerFabric)（作者 mrjesen，Apache-2.0）的核心行为搬到 1.7.10：  
+> **不输入文字的时候把输入法摘掉，点到文本框的那一刻再装回去。**
 
-| 场景 | 输入法状态 |
-| --- | --- |
-| 没有打开任何界面 | 摘除（按键直达游戏） |
-| 打开物品栏 / 机器 GUI / 任务书 / 设置等无文本框界面 | 摘除 |
-| 点击聊天栏、NEI 搜索框、GT 机器里的文本框、告示牌、书与笔 | 恢复 |
-| 界面关闭 / 失去焦点 | 摘除 |
-| 游戏窗口不在前台（Alt-Tab） | 完全不碰，不会影响别的程序 |
+原版 1.7.10 的输入法一直挂在游戏窗口上，中文 / 日文 / 韩文输入法会吞掉 `W` `A` `S` `D` `E` `T` 这些按键，于是角色不动、物品栏打不开、聊天也开不出来。这个模组让键盘在「玩游戏」时保持英文直通，在「打字」时把输入法交还给你。
 
-默认按 `F6` 可以手动翻转当前状态（可在“控制”里改键；配置里设 `toggleKeyCode = 0` 可关掉快捷键）。
+```text
+游戏进行中 ──┬─ 界面里没有文本框 ──► 摘除 IME ──► 按键直达游戏
+             └─ 文本框拿到焦点   ──► 装回 IME ──► 正常输入中文
+```
 
-## 原理
+---
 
-1. **平台层**：Windows 上用 JNA 调用 `imm32` / `user32`（随模组打包，无需另装）。
-   - 默认策略 `detach`：`ImmAssociateContext(hwnd, NULL)` 把 IME 从游戏窗口上摘下来，原来的 HIMC 存起来，
-     需要打字时再 `ImmAssociateContext(hwnd, 保存的 HIMC)` 装回去。这正是 IMBlocker 在新版本上的做法。
-   - 备选策略 `openstatus`：不动关联关系，只 `ImmSetOpenStatus` 关闭/打开输入法，对少数“摘除也照样吃键”的
-     输入法更温和。
-   - 窗口句柄优先用 `GLFWNativeWin32.glfwGetWin32Window` 精确获取（GTNH 2.7+ 是 lwjgl3ify，即真正的
-     LWJGL3/GLFW 窗口）；拿不到时退回 `GetForegroundWindow()` 并校验进程 ID，保证只动自己的窗口。
-2. **焦点判定**：
-   - Mixin 注入 `GuiTextField#setFocused(Z)V` —— 1.7.10 生态里几乎所有文本框（包括 NEI 的搜索框，它内部就包了一个
-     `GuiTextField`、AE2 的 `MEGuiTextField`、任务书、GT 的输入框）最终都会走到这个方法，一条 hook 全覆盖。
-   - 兜底再对当前界面做一次对象图扫描，找出没有继承 `GuiTextField` 的自制输入控件（鸭子类型：有 `isFocused()` 或
-     `focused` 字段 + `getText()`），只在新界面打开时扫一次，之后每 tick 只做几次虚调用。
-   - `alwaysImeScreens` 里预置了 `GuiChat`、`GuiSleepMP`、`GuiEditSign`、`GuiScreenBook`，这些界面本身没有
-     `GuiTextField` 但确实需要打字。
-3. **每 tick**（20Hz）重新判断一次，只在状态翻转时才真正调用系统 API，避免刷屏式调用。
+## 目录
 
-## 安装
+- [快速开始](#快速开始)
+- [行为一览](#行为一览)
+- [工作原理](#工作原理)
+- [配置](#配置)
+- [排错](#排错)
+- [兼容性与已知限制](#兼容性与已知限制)
+- [从源码构建](#从源码构建)
+- [项目结构](#项目结构)
+- [许可与致谢](#许可与致谢)
 
-把构建出的 `imblocker-<version>.jar` 丢进 `mods/`，需要 **UniMixins**（GTNH 自带）。仅客户端模组，服务器不用装。
+---
+
+## 快速开始
+
+| 步骤 | 操作                                                             |
+| -- | -------------------------------------------------------------- |
+| 1  | 把 `imblocker-1.7.10-0.1.1.jar` 放进整合包的 `mods/`                  |
+| 2  | 确认有 **UniMixins**（GTNH 自带，无需额外安装）                              |
+| 3  | 启动游戏，主菜单后日志出现 `Using IME backend: windows/imm32 (detach)` 即为生效 |
+
+仅客户端模组，服务器不用装；不写世界数据，随删随走。
+
+---
+
+## 行为一览
+
+| 场景                             | 输入法状态 | 说明                |
+| ------------------------------ | :---: | ----------------- |
+| 未打开任何界面                        |   摘除  | 走路、挖矿、快捷栏全部正常     |
+| 物品栏 / 机器 GUI / 任务书 / 设置等无文本框界面 |   摘除  | `E` `Q` 等按键不再被吞   |
+| 聊天栏、NEI 搜索框、GT 输入框、告示牌、书与笔     |   恢复  | 点中即恢复，无需手动切       |
+| 界面关闭 / 文本框失焦                   |   摘除  | 最多晚 1 tick（50 ms） |
+| 游戏窗口不在前台（Alt-Tab）              |  不处理  | 只操作自己的窗口，不影响其他程序  |
+
+不需要任何手动切换：文本框获焦即恢复、失焦即摘除。想整体停用，把配置里 `enabled` 改成 `false` 即可（不写世界数据，也可以直接删 jar）。
+
+---
+
+## 工作原理
+
+三层结构，从上到下依次是「判定 → 决策 → 系统调用」：
+
+| 层    | 做的事              | 实现                                                           |
+| ---- | ---------------- | ------------------------------------------------------------ |
+| 焦点判定 | 当前界面有没有正在输入的文本框  | Mixin 注入 `GuiTextField#setFocused`（`func_146195_b`）+ 对象图扫描兜底 |
+| 状态决策 | 该开还是该关，只在翻转时动作   | 每 tick（20 Hz）计算一次，幂等调用                                       |
+| 系统调用 | 真正切换 Windows 输入法 | JNA 调 `imm32` / `user32`，JNA 已内嵌                             |
+
+**① 为什么盯 `setFocused`**  
+1.7.10 生态里几乎所有文本框最后都会走到这个方法：NEI 的搜索框内部就包了一个 `GuiTextField`，AE2 的 `MEGuiTextField`、任务书、GT 的输入框也都继承自它。一条 hook 就能覆盖绝大部分场景。  
+没有继承 `GuiTextField` 的自制控件，用一个「鸭子类型」扫描兜底：新界面打开时遍历一次对象图，凡是带 `isFocused()`（或 `focused` 字段）且带 `getText()` 的，都算文本输入。之后每 tick 只做几次虚调用。
+
+**② 两种切换策略**
+
+| 模式           | 做法                                                               | 适用                         |
+| ------------ | ---------------------------------------------------------------- | -------------------------- |
+| `detach`（默认） | `ImmAssociateContext(hwnd, NULL)` 把 IME 从窗口摘下来，原 HIMC 存着，打字时再装回去 | 绝大多数输入法，行为与新版 IMBlocker 一致 |
+| `openstatus` | 不动关联关系，只 `ImmSetOpenStatus` 关闭 / 打开输入法                           | 少数连「摘除」都不理会的 TSF 输入法       |
+
+装回去之后还会校验一次 `ImmGetContext`，如果 context 在摘除期间失效，会新建一个，避免出现「打字时反而完全没输入法」的死局。
+
+**③ 窗口句柄从哪来**  
+优先 `GLFWNativeWin32.glfwGetWin32Window(glfwGetCurrentContext())` —— GTNH 2.7+ 跑的是 lwjgl3ify，底层就是真正的 LWJGL 3 / GLFW 窗口，这样拿到的句柄最准确；拿不到（比如纯 LWJGL2 的老整合）才退回 `GetForegroundWindow()`，并且核对进程 ID，确保只改自己的窗口。
+
+---
 
 ## 配置
 
-`config/imblocker.cfg`
+`config/imblocker.cfg`，首次启动自动生成。
+
+| 键                       | 类型     | 默认                                                   | 作用                             |
+| ----------------------- | ------ | ---------------------------------------------------- | ------------------------------ |
+| `enabled`               | bool   | `true`                                               | 总开关                            |
+| `mode`                  | string | `detach`                                             | `detach` 或 `openstatus`，见上文策略表 |
+| `checkIntervalTicks`    | int    | `1`                                                  | 每几个 tick 检查一次焦点，`1` = 50 ms    |
+| `debug`                 | bool   | `false`                                              | 打印每次状态翻转与界面切换，排错用              |
+| `alwaysImeScreens`      | list   | `GuiChat`、`GuiSleepMP`、`GuiEditSign`、`GuiScreenBook` | 本身没有 `GuiTextField` 但确实要打字的界面  |
+| `extraTextInputClasses` | list   | 空                                                    | 额外当作输入框处理的类名（支持片段匹配）           |
+
+<details>
+
+<summary>展开完整配置示例</summary>
 
 ```ini
 general {
-    # 总开关
     B:enabled=true
-
-    # detach: 摘除 IME 上下文（推荐，IMBlocker 同款）
-    # openstatus: 只关闭/打开输入法
     S:mode=detach
-
-    # 每多少个 tick 检查一次焦点，1 = 50ms
     I:checkIntervalTicks=1
-
-    # 切换快捷键的 LWJGL 键码，F6 = 64，0 = 关闭
-    I:toggleKeyCode=64
-
-    # 打印每次状态翻转，排查问题用
     B:debug=false
 
-    # 没有 GuiTextField 但需要输入法的界面
     S:alwaysImeScreens <
         net.minecraft.client.gui.GuiChat
         net.minecraft.client.gui.GuiSleepMP
@@ -70,48 +115,111 @@ general {
         net.minecraft.client.gui.GuiScreenBook
      >
 
-    # 额外当作输入框处理的类名（可写片段），比如某个模组自制搜索框
     S:extraTextInputClasses <
      >
 }
 ```
 
-某个模组的输入框打字时输入法没恢复？把 `debug=true` 打开，看日志里 `screen -> xxx` 的类名，然后：
-先加进 `extraTextInputClasses`（如果它是自制控件），或者告诉我它的类名，我给它补一条适配。
+</details>
 
-## 构建
+---
 
-GTNH 的新构建链对 JDK 有点挑剔，先把两个坑说清楚：
+## 排错
 
-- **跑 Gradle 必须 JDK 25**（仓库里 `gradle/gradle-daemon-jvm.properties` 写死 25，`gtnhgradle` 插件本身也要求 JVM ≥ 25）；
-- **`compileApiJava` 源码集要 JDK 8 工具链**，Gradle 默认会自己去 foojay/GitHub 自动下载，国内直连基本必挂。
+| 现象                              | 先试这个                                                              |
+| ------------------------------- | ----------------------------------------------------------------- |
+| 走路时按键还是被吃                       | `mode` 改 `openstatus`，重启游戏                                        |
+| 某个模组的搜索框打不出中文                   | `debug=true`，看日志里那一行 `screen -> 类名`，把类名填进 `extraTextInputClasses` |
+| 聊天能打字但候选框不跟随光标                  | 这是 1.7.10 原版限制，本模组不负责；需要 IMEInputBackport / IngameIME 那类方案        |
+| 启动崩溃 / 日志有 `Mixin apply failed` | 把 `logs/latest.log` 与 `crash-reports` 里的报告发出来                     |
+| 想彻底关掉但保留模组                      | 配置文件 `enabled=false`，或直接删除 jar                                    |
 
-所以本地要备好 JDK 8 + 25，并显式告诉 Gradle 它们在哪（`<path>` 换成自己的路径）：
+开 `debug=true` 后，日志里能看到这类信息：
+
+```text
+[IMBlocker] [debug] screen -> codechicken.nei.GuiNEIContainer (probes: 3)
+[IMBlocker] [debug] IME -> on (typing)
+[IMBlocker] [debug] IME -> off (playing)
+```
+
+---
+
+## 兼容性与已知限制
+
+| 项                                                                  | 状态                               |
+| ------------------------------------------------------------------ | -------------------------------- |
+| **GTNH 2.8.4** + lwjgl3ify 2.1.16 + LWJGL 3.3.3 + UniMixins 0.1.23 | 唯一实测通过的环境                        |
+| 其他 GTNH 版本 / 其他 1.7.10 整合包                                         | 未测，请自行验证；出问题请附 `logs/latest.log` |
+| 纯 Forge 1.7.10（LWJGL2）                                             | 理论可用，窗口句柄走前台窗口兜底，未实测             |
+| Linux / macOS                                                      | 加载但不生效（只实现了 Windows 后端）          |
+| NEI / AE2 / 任务书 / GT 输入框                                           | Mixin 覆盖，实测点集中在 NEI 搜索框          |
+| `nech`（拼音搜索）                                                       | 不冲突：它只做搜索匹配，mixin 列表为空           |
+| 其他模组注入 `setFocused`                                                | 全包 236 个 mod 扫描后无冲突，仅本模组注入该方法    |
+| IMEInputBackport / IngameIME                                       | 会互相抢 IME 状态，建议二选一                |
+| 表情符号等代理对字符                                                         | 1.7.10 本身不支持，属原版限制               |
+
+其他说明：
+
+- 只在状态**翻转**时调系统 API，不会每帧刷 `ImmAssociateContext`。
+- 不使用 Mixin 的 `@Overwrite`，只做 `@Inject(HEAD)`，理论上与其他补丁共存友好。
+- jar 内嵌 JNA 5.19.1（未重定位 `com.sun.jna` 包名），若整合包内另有 JNA 且版本冲突，可反馈。
+
+---
+
+## 从源码构建
+
+GTNH 的新构建链对 JDK 比较挑剔，两个坑先说清楚：
+
+- **跑 Gradle 必须 JDK 25**：仓库里 `gradle/gradle-daemon-jvm.properties` 写死 25，`gtnhgradle` 插件本身也要求 JVM ≥ 25；
+- **`compileApiJava` 源码集要 JDK 8 工具链**：Gradle 默认会自己去 foojay / GitHub 自动下载，国内直连基本必挂。
+
+所以本地备好 JDK 8 + 25，并显式告诉 Gradle 它们在哪：
 
 ```bash
 export JAVA_HOME=/path/to/jdk-25
 export JAVA_TOOL_OPTIONS="-Djavax.net.ssl.trustStoreType=WINDOWS-ROOT \
   -Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=7890 \
   -Dhttp.proxyHost=127.0.0.1 -Dhttp.proxyPort=7890"
+
 ./gradlew build \
   "-Dorg.gradle.java.installations.paths=/path/to/jdk8,/path/to/jdk-17,/path/to/jdk-25"
 ```
 
-产物在 `build/libs/imblocker-<version>.jar`（分发用，已 reobf + 打包 JNA；`-dev.jar` 只给开发环境用）。
-首次构建要拉 Forge 10.13.4.1614 + MCP stable_12 并反编译，约 5 分钟；之后增量构建几十秒。
+| 产物                                       | 用途                          |
+| ---------------------------------------- | --------------------------- |
+| `build/libs/imblocker-<version>.jar`     | 分发用：已 reobf（srg 名）+ 已打包 JNA |
+| `build/libs/imblocker-<version>-dev.jar` | 只在开发环境 / `runClient` 使用     |
 
-## 兼容性 / 已知限制
+首次构建会经 GTNH Maven 拉 Forge 10.13.4.1614 + MCP `stable_12` 并反编译，约 5 分钟；之后增量构建 30 秒左右。
 
-- **只支持 Windows**。Linux（fcitx/ibus）和 macOS 上模组会加载但什么都不做。Linux 想用输入法得靠
-  IngameIME / IMEInputBackport 这类走 XIM/IBus 的实现。
-- 极少数纯 TSF 输入法（个别版本的搜狗/QQ 拼音）可能不理会“摘除上下文”，这时把 `mode` 改成 `openstatus` 试试。
-- 1.7.10 本身不支持输入法**候选框跟随光标 / 内联预编辑**，这个模组不解决那部分——那是 IMEInputBackport /
-  IngameIME 的活。两者同时装可能会抢 IME 状态，建议二选一。
-- 表情符号等需要代理对的字符在 1.7.10 里依旧不可能，属于原版限制。
-- 与 `InputFix` 类模组同用时，本模组在打字瞬间会把 IME 装回去，理论上不冲突，但没实测。
+---
+
+## 项目结构
+
+```text
+src/main/java/com/imblocker/backport
+├── IMBlocker.java              @Mod 入口
+├── CommonProxy.java            服务端空实现
+├── ClientProxy.java            客户端装配、热键、关服还原
+├── Config.java                 config/imblocker.cfg 读写
+├── event/ClientEventHandler    ClientTick 驱动状态机
+├── ime/
+│   ├── ImeController           平台抽象
+│   ├── ImeControllers          按操作系统选择后端
+│   ├── WindowsImeController    detach / openstatus 两套策略
+│   ├── Win32                   imm32 / user32 / kernel32 绑定
+│   └── NoopImeController       非 Windows 兜底
+├── input/
+│   ├── ImeStateManager         状态机，Mixin 与 tick 的交汇点
+│   ├── TextInputScanner        对象图扫描
+│   └── TextInputProbe          鸭子类型包装
+└── mixins/MixinGuiTextField    setFocused 注入
+```
+
+---
 
 ## 许可与致谢
 
-- 行为与思路来自 IMBlocker（mrjesen，Apache-2.0），本仓库是针对 1.7.10 的独立实现。
-- 本项目同样以 Apache-2.0 发布。
-- 构建骨架来自 [GTNewHorizons/ExampleMod1.7.10](https://github.com/GTNewHorizons/ExampleMod1.7.10)。
+- 行为与思路来自 [IMBlocker](https://github.com/mrjesen/ImBlockerFabric)（mrjesen，Apache-2.0），本仓库是针对 1.7.10 的独立实现。
+- 本项目同样以 **Apache-2.0** 发布，构建骨架来自 [GTNewHorizons/ExampleMod1.7.10](https://github.com/GTNewHorizons/ExampleMod1.7.10)。
+- 内嵌 [JNA](https://github.com/java-native-access/jna) 5.19.1（Apache-2.0 / LGPL-2.1 双许可）。

@@ -35,11 +35,9 @@ public class ClientProxy extends CommonProxy {
 
         ImeStateManager.init(controller, Minecraft.getMinecraft());
 
-        ClientEventHandler handler = new ClientEventHandler(controller);
         FMLCommonHandler.instance()
             .bus()
-            .register(handler);
-        handler.registerKeyBinding();
+            .register(new ClientEventHandler());
 
         // Make sure a detached IME never outlives the game window.
         Runtime.getRuntime()
